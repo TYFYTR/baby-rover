@@ -39,3 +39,6 @@
 ### Next session
 - Write motor_controller node
 
+## 2026-02-24-10-20 - Alex 
+
+### Updated README
