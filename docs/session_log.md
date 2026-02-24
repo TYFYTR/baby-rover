@@ -57,6 +57,7 @@
 - Encoder callbacks broken in lgpio 0.2.0.0 on Pi 5 — switched to 100Hz polling via ROS 2 timer
 - /odom publishing and incrementing correctly with wheel movement
 
+
 ### Decisions made
 - Running nodes directly with Python for now — no colcon package yet
 - nodes/ directory on Pi for scripts
@@ -70,3 +71,11 @@
 
 ### Next session
 - IMU node — MPU-6050 publishing to /imu/data
+
+## 2026-02-24-17-00 - Alex
+
+### What was done 
+- Wired MPU-6050 via I2C — GPIO 2 (SDA), GPIO 3 (SCL)
+- Confirmed i2cdetect shows 0x68
+- Wrote imu_driver node — publishes to /imu/data at 100Hz
+- Installed i2c-tools, mpu6050-raspberrypi, python3-smbus on Pi

@@ -37,6 +37,19 @@ compatibility with Nav2, robot_localization, and any other ROS 2 package.
 - **N20 wheel speed mismatch:** wheels run at slightly different speeds under open-loop
   control. Fix: encoder feedback + PID I-term correction. Deferred to PID tuning phase.
 
+## Wheel & Encoder Specs
+| Parameter | Value |
+|-----------|-------|
+| Wheel diameter | 44mm |
+| Wheel circumference | 138.2mm |
+| Encoder resolution | 7 PPR (hall effect) |
+| Gear ratio | 150:1 |
+| Output shaft resolution | 1050 PPR |
+| Distance per pulse | 0.1316mm |
+| Wheelbase | 0.12m (estimated — measure and update) |
+| Motor A | Right wheel |
+| Motor B | Left wheel |
+
 ## Wiring
 
 ### Power
@@ -74,9 +87,20 @@ compatibility with Nav2, robot_localization, and any other ROS 2 package.
 | Encoder B Phase A | 21 | GPIO 9 | B (Left) |
 | Encoder B Phase B | 19 | GPIO 10 | B (Left) |
 
+### IMU (Pi ← MPU-6050)
+| Signal | Pi Pin | GPIO |
+|--------|--------|------|
+| VCC | 1 | 3.3V |
+| GND | 9 | GND |
+| SDA | 3 | GPIO 2 |
+| SCL | 5 | GPIO 3 |
+
+
 ### Known Wiring Issues
 - **10kΩ pulldowns on all 6 motor control pins** — added for safety during initial setup.
   Suspected contributor to motor speed asymmetry (slight right curve). To be removed and
   retested during dedicated troubleshooting session. Do not tune PID until pulldowns resolved.
 - **Motor curve** — rover drifts right under open-loop control. Root cause not yet isolated.
   Troubleshooting plan: strip pulldowns first, retest from zero, document each result.
+
+
