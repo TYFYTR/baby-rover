@@ -82,3 +82,7 @@
 - Created updated dependencies.md
 - Updated hardware.md with motor/encoder specs for measuring movement
 - Updated hardare.md with IMU wiring 
+
+## 2026-02-24-17-43 - Alex 
+- Updated disisions.md - ADR-001-(encoder reading polling vs interrupt-driven callbacks)
+- README.md is compete and up to date
