@@ -42,3 +42,31 @@
 ## 2026-02-24-10-20 - Alex 
 
 ### Updated README
+
+## 2026-02-24-15-14 - Alex
+
+### What was done
+- Confirmed Cursor SSH workflow — editing files directly on Pi
+- Installed lgpio on Pi 5
+- Discovered Pi 5 uses gpiochip4 not gpiochip0
+- Wrote motor_controller node — open loop, subscribes to /cmd_vel
+- Confirmed ROS 2 pub/sub pipeline working
+- Motors responding to /cmd_vel — both wheels spinning correct direction
+- Measured wheel diameter = 44mm
+- Encoder resolution: 7PPR × 150 gear ratio = 1050 PPR, 1 pulse = 0.1316mm
+- Encoder callbacks broken in lgpio 0.2.0.0 on Pi 5 — switched to 100Hz polling via ROS 2 timer
+- /odom publishing and incrementing correctly with wheel movement
+
+### Decisions made
+- Running nodes directly with Python for now — no colcon package yet
+- nodes/ directory on Pi for scripts
+- No sudo required — babyrover already in gpio, i2c, spi groups
+- Encoder polling at 100Hz instead of interrupt-driven callbacks — lgpio bug, revisit on university rover
+
+### Deferred
+- 10kΩ pulldown troubleshooting — suspected curve cause, dedicated session
+- colcon workspace setup — after all nodes working
+- /odom accuracy tuning — y drift and angular.z oscillation confirm wheel mismatch, do not tune until pulldowns resolved
+
+### Next session
+- IMU node — MPU-6050 publishing to /imu/data
