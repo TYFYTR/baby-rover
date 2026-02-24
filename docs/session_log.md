@@ -79,3 +79,6 @@
 - Confirmed i2cdetect shows 0x68
 - Wrote imu_driver node — publishes to /imu/data at 100Hz
 - Installed i2c-tools, mpu6050-raspberrypi, python3-smbus on Pi
+- Created updated dependencies.md
+- Updated hardware.md with motor/encoder specs for measuring movement
+- Updated hardare.md with IMU wiring 
