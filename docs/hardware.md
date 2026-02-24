@@ -30,10 +30,6 @@ compatibility with Nav2, robot_localization, and any other ROS 2 package.
 | `/camera/color` | sensor_msgs/Image | Output — RealSense D415 RGB frame |
 
 ## Known Issues
-- **RealSense D415 on Pi 5 (ARM64):** Intel's official librealsense2 Debian packages
-  are x86 only — no ARM64 binary available. Solution is to build librealsense2 from
-  source on the Pi. This is a known, solvable problem with documented community
-  instructions.
 - **N20 wheel speed mismatch:** wheels run at slightly different speeds under open-loop
   control. Fix: encoder feedback + PID I-term correction. Deferred to PID tuning phase.
 
@@ -49,6 +45,21 @@ compatibility with Nav2, robot_localization, and any other ROS 2 package.
 | Wheelbase | 0.12m (estimated — measure and update) |
 | Motor A | Right wheel |
 | Motor B | Left wheel |
+
+### RealSense D415
+| Signal | Interface | Notes |
+|--------|-----------|-------|
+| Power + Data | USB 3.0 (blue port) | Must be USB 3.0 — USB 2.0 insufficient bandwidth |
+
+#### RealSense ROS 2 Topic Names
+| Topic | Type | Notes |
+|-------|------|-------|
+| `/camera/camera/color/image_raw` | sensor_msgs/Image | RGB colour stream |
+| `/camera/camera/depth/image_rect_raw` | sensor_msgs/Image | Depth stream |
+| `/camera/camera/color/camera_info` | sensor_msgs/CameraInfo | Colour camera calibration |
+| `/camera/camera/depth/camera_info` | sensor_msgs/CameraInfo | Depth camera calibration |
+
+Note: topic names have double `/camera/camera/` prefix — this is the realsense2_camera wrapper default.
 
 ## Wiring
 

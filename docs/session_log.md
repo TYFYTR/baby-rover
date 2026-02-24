@@ -86,3 +86,33 @@
 ## 2026-02-24-17-43 - Alex 
 - Updated disisions.md - ADR-001-(encoder reading polling vs interrupt-driven callbacks)
 - README.md is compete and up to date
+
+## 2026-02-24-19-25 - Alex
+
+### What was done
+- Built librealsense2 2.57.6 from source on Pi 5 ARM64
+- Installed ros-jazzy-realsense2-camera ROS 2 wrapper
+- RealSense D415 confirmed publishing on Pi 5 via USB 3.2
+- Confirmed all 4 topics publishing simultaneously:
+  - /odom ✅
+  - /imu/data ✅
+  - /camera/camera/depth/image_rect_raw ✅
+  - /camera/camera/color/image_raw ✅
+- Confirmed depth stream publishing at 29Hz via `ros2 topic hz`
+- Milestone 2 complete
+- Updated README
+- Added milestones.md
+
+### Decisions made
+- RealSense uses realsense2_camera wrapper directly — no custom node needed
+- Topic names have /camera/camera/ double prefix — wrapper default, documented in interface contract
+
+### Deferred
+- RealSense firmware update to 5.17.0.10 — not critical
+- State machine — Milestone 3
+
+### Milestone 2 status
+- /cmd_vel → motors ✅
+- /odom publishing ✅
+- /imu/data publishing ✅
+- /camera/depth publishing ✅
