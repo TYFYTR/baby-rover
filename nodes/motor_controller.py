@@ -11,7 +11,9 @@ import lgpio
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Header
 import math
-
+import gpiod
+import threading
+import datetime
 
 
 # --- Pin definitions (BCM numbering) ---
@@ -26,7 +28,7 @@ PWMB = 12  # Motor B (Left) speed
 STBY = None  # Pulled HIGH via resistor — no GPIO control needed
 
 # --- Robot physical parameters ---
-WHEEL_BASE = 0.12       # metres — distance between wheels, measure and update
+WHEEL_BASE = 0.34       # metres — distance between wheels, measure and update
 MAX_SPEED = 100         # PWM duty cycle max (0-100)
 
 MOTOR_PINS = [AIN1, AIN2, PWMA, BIN1, BIN2, PWMB]
@@ -48,17 +50,26 @@ class MotorController(Node):
         lgpio.tx_pwm(self.chip, PWMA, 1000, 0)
         lgpio.tx_pwm(self.chip, PWMB, 1000, 0)
 
-        # Encoder setup
+        # Encoder setup via gpiod kernel interrupts
         self.enc_a_count = 0
         self.enc_b_count = 0
-        self.enc_a_last = 0
-        self.enc_b_last = 0
+        self._enc_lock = threading.Lock()
 
-        lgpio.gpio_claim_input(self.chip, 24)
-        lgpio.gpio_claim_input(self.chip, 9)
+        self.gpio_chip = gpiod.Chip('/dev/gpiochip4')
 
-        # Poll encoders at 100Hz
-        self.create_timer(0.01, self.poll_encoders)
+        self.enc_a_request = self.gpio_chip.request_lines(
+            consumer='enc_a',
+            config={21: gpiod.LineSettings(edge_detection=gpiod.line.Edge.RISING, debounce_period=datetime.timedelta(microseconds=0.5))}
+        )
+        self.enc_b_request = self.gpio_chip.request_lines(
+            consumer='enc_b',
+            config={24: gpiod.LineSettings(edge_detection=gpiod.line.Edge.RISING, debounce_period=datetime.timedelta(microseconds=0.5))}
+        )
+
+        self.enc_a_thread = threading.Thread(target=self._watch_enc_a, daemon=True)
+        self.enc_b_thread = threading.Thread(target=self._watch_enc_b, daemon=True)
+        self.enc_a_thread.start()
+        self.enc_b_thread.start()
 
         # ROS subscriber
         self.sub = self.create_subscription(
@@ -128,20 +139,12 @@ class MotorController(Node):
     def destroy_node(self):
         self.stop_motors()
         lgpio.gpiochip_close(self.chip)
+        self.enc_a_request.release()
+        self.enc_b_request.release()
+        self.gpio_chip.close()
         super().destroy_node()
 
-    def poll_encoders(self):
-        a = lgpio.gpio_read(self.chip, 24)
-        b = lgpio.gpio_read(self.chip, 9)
-        
-        if a == 1 and self.enc_a_last == 0:
-            self.enc_a_count += 1
-        if b == 1 and self.enc_b_last == 0:
-            self.enc_b_count += 1
-            
-        self.enc_a_last = a
-        self.enc_b_last = b
-    
+
     def publish_odom(self):
         PULSES_PER_REV = 1050
         WHEEL_CIRCUMFERENCE = 0.1382  # metres
@@ -171,6 +174,29 @@ class MotorController(Node):
         msg.twist.twist.angular.z = dtheta / 0.02
 
         self.odom_pub.publish(msg)
+    
+    def _watch_enc_a(self):
+        while rclpy.ok():
+            if self.enc_a_request.wait_edge_events(datetime.timedelta(seconds=1)):
+                self.enc_a_request.read_edge_events()
+                with self._enc_lock:
+                    self.enc_a_count += 1
+
+    def _watch_enc_b(self):
+        while rclpy.ok():
+            if self.enc_b_request.wait_edge_events(datetime.timedelta(seconds=1)):
+                self.enc_b_request.read_edge_events()
+                with self._enc_lock:
+                    self.enc_b_count += 1
+
+   # def _watch_enc_a(self):
+   #     while rclpy.ok():
+   #         if self.enc_a_request.wait_edge_events(datetime.timedelta(seconds=1)):
+   #         events = self.enc_a_request.read_edge_events()
+   #         self.get_logger().info(f'enc_a events per read: {len(events)}')
+   #         with self._enc_lock:
+   #             self.enc_a_count += 1
+
 
 def main(args=None):
     rclpy.init(args=args)

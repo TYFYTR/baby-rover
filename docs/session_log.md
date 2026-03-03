@@ -116,3 +116,29 @@
 - /odom publishing ✅
 - /imu/data publishing ✅
 - /camera/depth publishing ✅
+
+## 2026-03-03-21-50 - Alex
+
+### what was done 
+- drove the motro with teleop-twist-keyboard
+- calculated 5% drift to the right
+- measured wheel to wheel weidth 340mm from centre of track mark (tape measure)
+- updated wheel base motor_contorller.py
+- tested 100hz poll rate was too slow, increased to 1000hz could count slow hand turning but failed at practical speed
+- installed gpiod-2.4.0 with  pip3 install gpiod --break-system-packages
+- installed pulseview on ThinkPad -> for DIGISHUO 24Hz - 8 channel logic analyzer -> run with pulseview
+- sudo apt install sigrok-firmware-fx2lafw for logic analyzer 
+- Abandened polling - not sufficent for high frequencey encoder pulses
+- implemented kernal interupts method - enc_b is accuracte, enc_a is 2.5 times larger consitently
+- encoder_dianostic.md was created refer to for test procedure and truth 
+- problem solved wires were carrying EMF spike from motor A, problem fixed with wire separation 
+
+
+### observations
+- wheel contact dirt mark curve around the wheel -> wheel needs alignment
+
+### known problem 
+- motor A produces EMF spikes - solution capacitor accorss motor power - and + and add a low pass filter. 
+- motor B did not produce EMF 
+
+### short term solution seperated the wires (worked)

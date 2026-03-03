@@ -1,5 +1,10 @@
 # Hardware
 
+## Known Issues
+- **N20 wheel speed mismatch:** wheels run at slightly different speeds under open-loop
+  control. Fix: encoder feedback + PID I-term correction. Deferred to PID tuning phase.
+- **wheel is miss aligned** currnetly using lego + hose clamp soluion -> explore 3D solutions if required 
+
 ## Compute
 - **Raspberry Pi 5** (8GB) — main compute board
 - Ubuntu 24.04 LTS server (aarch64)
@@ -29,9 +34,10 @@ compatibility with Nav2, robot_localization, and any other ROS 2 package.
 | `/camera/depth` | sensor_msgs/Image | Output — RealSense D415 depth frame |
 | `/camera/color` | sensor_msgs/Image | Output — RealSense D415 RGB frame |
 
-## Known Issues
-- **N20 wheel speed mismatch:** wheels run at slightly different speeds under open-loop
-  control. Fix: encoder feedback + PID I-term correction. Deferred to PID tuning phase.
+## Rover Mechanics
+
+-wheel to wheel diameter 340mm
+
 
 ## Wheel & Encoder Specs
 | Parameter | Value |
@@ -93,10 +99,10 @@ Note: topic names have double `/camera/camera/` prefix — this is the realsense
 ### Encoders (Pi ← Encoders)
 | Signal | Pi Pin | GPIO | Motor |
 |--------|--------|------|-------|
-| Encoder A Phase A | 18 | GPIO 24 | A (Right) |
-| Encoder A Phase B | 16 | GPIO 23 | A (Right) |
-| Encoder B Phase A | 21 | GPIO 9 | B (Left) |
-| Encoder B Phase B | 19 | GPIO 10 | B (Left) |
+| Encoder A Phase A | 40 | GPIO 21 | A (Right) |
+| Encoder A Phase B | 38 | GPIO 20 | A (Right) |
+| Encoder B Phase A | 18 | GPIO 24 | B (Left) |
+| Encoder B Phase B | 16 | GPIO 23 | B (Left) |
 
 ### IMU (Pi ← MPU-6050)
 | Signal | Pi Pin | GPIO |
@@ -115,3 +121,9 @@ Note: topic names have double `/camera/camera/` prefix — this is the realsense
   Troubleshooting plan: strip pulldowns first, retest from zero, document each result.
 
 
+## Tools
+
+### Logic analyzer
+- using DIGISHUO USB Logic Analyzer Device with EMI Ferrite Ring USB Cable 24MHz 8CH 24MHz 8 Channel UART IIC SPI Debug -> clone of Saleae Logic 8 — uses the Cypress FX2 chip. Works with PulseView via the fx2lafw driver.
+-sudo apt install pulseview
+-sudo apt install sigrok-firmware-fx2lafw
