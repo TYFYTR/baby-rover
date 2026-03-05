@@ -33,6 +33,14 @@ MAX_SPEED = 100         # PWM duty cycle max (0-100)
 
 MOTOR_PINS = [AIN1, AIN2, PWMA, BIN1, BIN2, PWMB]
 
+#PID controller tunable parameters
+pid_kp = 0.01
+pid_ki = 0.005
+pid_kd = 0
+windup_limit = 50
+
+
+
 
 class MotorController(Node):
 
@@ -89,18 +97,19 @@ class MotorController(Node):
         self.last_enc_b = 0
         self.create_timer(0.02, self.publish_odom)  # 50Hz
 
+        # PID controller
+        self.pid_integral = 0.0
+        self.pid_prev_error = 0.0
+        self.correction = 0.0
+        self.linear = 0.0
+        self.angular = 0.0
+        self.debug_counter = 0
+
     def cmd_vel_callback(self, msg):
         self.get_logger().info(f'cmd_vel: linear={msg.linear.x:.2f} angular={msg.angular.z:.2f}')
         self.get_logger().info(f'enc_a={self.enc_a_count} enc_b={self.enc_b_count}')
-        linear = msg.linear.x
-        angular = msg.angular.z
-
-        # Differential drive mixing
-        right = linear - (angular * WHEEL_BASE / 2.0)
-        left  = linear + (angular * WHEEL_BASE / 2.0)
-
-        self.drive_motor_a(right)
-        self.drive_motor_b(left)
+        self.linear = msg.linear.x
+        self.angular = msg.angular.z
 
     def drive_motor_a(self, speed):
         duty = min(abs(speed) * MAX_SPEED, MAX_SPEED)
@@ -157,6 +166,24 @@ class MotorController(Node):
         dist_a = (delta_a / PULSES_PER_REV) * WHEEL_CIRCUMFERENCE
         dist_b = (delta_b / PULSES_PER_REV) * WHEEL_CIRCUMFERENCE
 
+        #PID controller
+        error = delta_a - delta_b
+        self.pid_integral += error * 0.02
+        self.pid_integral = max(-windup_limit,min (windup_limit,self.pid_integral)) #windup limit (tunable parameter)
+        derivative = (error - self.pid_prev_error) / 0.02
+        self.correction = pid_kp * error + pid_ki * self.pid_integral + pid_kd * derivative
+        self.debug_counter += 1
+        if self.debug_counter % 25 == 0:  # print once per 0.5 seconds
+            self.get_logger().info(f'correction={self.correction:.4f} integral={self.pid_integral:.4f} error={error}')
+        self.pid_prev_error = error
+
+        correction_normalised = self.correction
+        right = self.linear - (self.angular * WHEEL_BASE / 2.0) - correction_normalised
+        left  = self.linear + (self.angular * WHEEL_BASE / 2.0) + correction_normalised
+        self.drive_motor_a(right)
+        self.drive_motor_b(left)
+        
+
         dist = (dist_a + dist_b) / 2.0
         dtheta = (dist_a - dist_b) / WHEEL_BASE
 
@@ -188,14 +215,6 @@ class MotorController(Node):
                 self.enc_b_request.read_edge_events()
                 with self._enc_lock:
                     self.enc_b_count += 1
-
-   # def _watch_enc_a(self):
-   #     while rclpy.ok():
-   #         if self.enc_a_request.wait_edge_events(datetime.timedelta(seconds=1)):
-   #         events = self.enc_a_request.read_edge_events()
-   #         self.get_logger().info(f'enc_a events per read: {len(events)}')
-   #         with self._enc_lock:
-   #             self.enc_a_count += 1
 
 
 def main(args=None):

@@ -142,3 +142,10 @@
 - motor B did not produce EMF 
 
 ### short term solution seperated the wires (worked)
+
+## 2026-03-05-22-50 Alex
+
+### what was done:
+- implented added PID
+- open loop 5% variance 
+- closed loop -> P = 0.01 | I = 0.005 | Variance = 0.5% after 10 seconds - (linear x = 0.3)
