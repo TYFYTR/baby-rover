@@ -170,3 +170,57 @@ Stalling noise when linear x = 0.0 on node startup.
       self.stop_motors()
 ```
 Motors are now silent until the first `cmd_vel` arrives.
+
+## 2026-03-08-21-10 Alex
+
+### What was done
+Ported the motor controller from Python to C++ and got it compiling and running as a proper ROS 2 colcon package.
+
+The Python node (`nodes/motor_controller.py`) is retained and still functional. The C++ node is the new parallel implementation under `rover_control/src/motor_controller.cpp`. Both can be run independently — Python via `python3 nodes/motor_controller.py`, C++ via `ros2 run rover_control motor_controller`.
+
+### Why C++
+The C++ rewrite is intentional and for learning purposes. PID is a well-understood, bounded problem — it makes a good first C++ implementation because the logic is simple enough that the language itself is the challenge. The goal is to build programming fundamentals from the hardware side up, not abstract theory down. The `computePID()` function is deliberately left as a stub to be implemented by hand tomorrow after working through the control theory.
+
+### Package structure created
+A proper ROS 2 colcon package `rover_control` was created inside the repo:
+```
+baby-rover/
+  rover_control/
+    src/
+      motor_controller.cpp   ← C++ node
+    CMakeLists.txt
+    package.xml
+  nodes/
+    motor_controller.py      ← Python node (retained)
+```
+
+### Problems encountered and fixed
+
+**Problem 1 — broken dpkg**
+`python3-colcon-ros` was in a broken state due to missing `python3-catkin-pkg` dependency. Fixed by removing the broken package and installing colcon via pip:
+```bash
+sudo dpkg --remove --force-depends python3-colcon-ros
+pip3 install colcon-common-extensions --break-system-packages
+```
+
+**Problem 2 — gpiod API version mismatch**
+The C++ file was written using the gpiod v2 C++ API (`gpiod::line_settings`, `request_lines`, `wait_edge_events`). The system only has gpiod v1.6.3 installed (`libgpiod-dev`). v2 is not available in the Ubuntu 24.04 apt repos.
+
+Fixed by rewriting the encoder section to use the gpiod v1 C API:
+- `gpiod_chip_open()` to open the chip
+- `gpiod_chip_get_line()` to get line handles
+- `gpiod_line_request_rising_edge_events()` to configure interrupt detection
+- `gpiod_line_event_wait()` / `gpiod_line_event_read()` in background threads
+
+**Problem 3 — wrong destructor call**
+`lgpio_close()` does not exist in lgpio. Correct function is `lgGpiochipClose()`. Fixed with sed.
+
+### Current state
+- C++ node compiles clean (two warnings on empty `computePID()` stub — expected and intentional)
+- Node runs and subscribes to `/cmd_vel`, publishes to `/odom`
+- PID gains are all 0.0 — node runs open-loop until `computePID()` is implemented
+- Motors respond to `ros2 topic pub /cmd_vel` commands
+- Encoder counting confirmed working via background threads
+
+### Next session
+Implement `computePID()` in C++. The function signature, struct, and comments are already in place — only the three PID terms need to be written. Set gains to the known-working Python values (KP=0.01, KI=0.005, KD=0) once implemented and verify closed-loop behaviour matches the Python node.
