@@ -224,3 +224,161 @@ Fixed by rewriting the encoder section to use the gpiod v1 C API:
 
 ### Next session
 Implement `computePID()` in C++. The function signature, struct, and comments are already in place — only the three PID terms need to be written. Set gains to the known-working Python values (KP=0.01, KI=0.005, KD=0) once implemented and verify closed-loop behaviour matches the Python node.
+
+## 2026-03-10-20-20 - Alex
+## 2026-03-10 — VSCode Debugger Setup for C++ ROS 2 Node
+
+### Directory changes
+- created new file structure containing project_management directory for all arcitecture and dicision based documents
+
+
+### Goal
+Get VSCode's C++ debugger working for `motor_controller.cpp` running on the Pi 5 via Remote-SSH, so breakpoints and variable inspection work during hardware testing.
+
+### Context
+- Development machine: ThinkPad running Ubuntu 24.04
+- Target machine: Raspberry Pi 5 (babyrover@10.0.0.76)
+- VSCode connected to Pi via Remote-SSH extension
+- C++ node built with colcon inside `~/baby-rover/rover_control/`
+
+---
+
+### What was broken and why
+
+**Problem 1 — wrong build system**
+VSCode auto-generated a `tasks.json` that used `g++ build active file` — plain g++ with no knowledge of ROS 2 headers or dependencies. This produced:
+```
+fatal error: rclcpp/rclcpp.hpp: No such file or directory
+```
+Plain g++ cannot build a ROS 2 node. Colcon must be used.
+
+**Problem 2 — no debug symbols**
+The default colcon build does not include debug symbols. Without them the debugger cannot map the running binary back to source code lines, so breakpoints show:
+```
+Module containing this breakpoint has not yet been loaded
+```
+
+**Problem 3 — wrong binary path in launch.json**
+The initial `launch.json` pointed at `install/rover_control/lib/rover_control/motor_controller` — the colcon install path. Once CMake build was configured instead, the binary moved to `build/motor_controller`. Mismatched path = debugger attaches to nothing.
+
+**Problem 4 — ninja not installed**
+CMake tried to use ninja as its build backend and failed silently. Fixed with `sudo apt install ninja-build`.
+
+---
+
+### The fix — step by step
+
+**Step 1 — Install dependencies on Pi**
+```bash
+sudo apt install gdb
+sudo apt install ninja-build
+```
+
+**Step 2 — Configure CMake in VSCode**
+`Ctrl+Shift+P` → `CMake: Select a Kit` → select `GCC aarch64-linux-gnu`
+
+This tells CMake which compiler to use and configures the build for the Pi's architecture. CMake then configures automatically and writes build files to `~/baby-rover/build/`.
+
+**Step 3 — Add debug symbols to CMakeLists.txt**
+In `~/baby-rover/rover_control/CMakeLists.txt`, add after `project(rover_control)`:
+```cmake
+set(CMAKE_BUILD_TYPE Debug)
+```
+This tells the compiler to include debug symbols in the binary. Without this, breakpoints do not work.
+
+**Step 4 — Replace tasks.json**
+Location: `~/baby-rover/.vscode/tasks.json`
+
+Replace the auto-generated g++ task with a colcon build task:
+```json
+{
+    "tasks": [
+        {
+            "label": "colcon build rover_control",
+            "type": "shell",
+            "command": "cd ~/baby-rover && colcon build --packages-select rover_control",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        }
+    ],
+    "version": "2.0.0"
+}
+```
+
+Note: CMake build (`Ctrl+Shift+P` → `CMake: Build`) is used for the debug binary because it puts the binary at `~/baby-rover/build/motor_controller` with debug symbols. Colcon build is kept in tasks.json for deployment builds via `ros2 run`.
+
+**Step 5 — Create launch.json**
+Location: `~/baby-rover/.vscode/launch.json`
+
+```json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug motor_controller",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/home/babyrover/baby-rover/build/motor_controller",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "/home/babyrover/baby-rover",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty printing",
+                    "text": "-enable-pretty-printing"
+                }
+            ]
+        }
+    ]
+}
+```
+
+**Step 6 — Build and launch**
+1. `Ctrl+Shift+P` → `CMake: Build` — builds with debug symbols into `build/`
+2. Open Run and Debug panel (left sidebar, bug+play icon)
+3. Select "Debug motor_controller" from dropdown
+4. Click green play button
+5. Set breakpoints by clicking left margin next to any line — red dot appears
+6. Breakpoint will halt execution and show all variables in the left panel
+
+---
+
+### Two build paths — understand the difference
+
+| | CMake Build | Colcon Build |
+|---|---|---|
+| Command | `CMake: Build` in VSCode | `colcon build --packages-select rover_control` |
+| Output location | `~/baby-rover/build/motor_controller` | `~/baby-rover/install/rover_control/lib/rover_control/motor_controller` |
+| Debug symbols | Yes (CMAKE_BUILD_TYPE=Debug) | No by default |
+| Used for | Debugging in VSCode | Running with `ros2 run` |
+| ROS 2 environment | Not needed | Needs `source install/setup.bash` |
+
+Use CMake build when debugging. Use colcon build when deploying and running as a ROS 2 node.
+
+---
+
+### IntelliSense squiggles (cosmetic only)
+Red underlines on `#include <rclcpp/rclcpp.hpp>` in VSCode are IntelliSense failing to find headers — not a real error. Fixed by creating `.vscode/c_cpp_properties.json`:
+```json
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/opt/ros/jazzy/include/**"
+            ],
+            "compilerPath": "/usr/bin/g++",
+            "cppStandard": "c++17"
+        }
+    ],
+    "version": 4
+}
+```
+This does not affect building or running — purely cosmetic fix for IDE experience.

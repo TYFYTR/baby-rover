@@ -229,7 +229,7 @@ private:
         // ─────────────────────────────────────────────────────────────────────
 
         if (++debug_counter_ % 25 == 0)
-            RCLCPP_INFO(get_logger(), "correction=%.4f  error=%.1f", correction, error);
+            RCLCPP_INFO(get_logger(), "enc_a=%d", enc_a_count_.load());
 
         // ── MOTOR MIXING ──────────────────────────────────────────────────────
         // correction nudges motors to keep them matched.
