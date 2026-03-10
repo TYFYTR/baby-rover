@@ -14,6 +14,7 @@
 - **2x N20 Motors with Encoders** — SKU: WS-26377 — differential drive
 - **TB6612FNG Dual Motor Controller** — SKU: POLOLU-713
 - Encoder feedback used for wheel odometry
+- resourse: https://www.waveshare.com/wiki/DCGM-N20-12V-EN-200RPM
 
 ## Sensors
 - **MPU-6050 IMU** — SKU: 018-MPU-6050
@@ -87,14 +88,14 @@ Note: topic names have double `/camera/camera/` prefix — this is the realsense
 | STBY | Pi Pin 1 (3.3V) | 10kΩ → STBY | Pulled HIGH permanently — motors always enabled |
 
 ### Motor Control (Pi → TB6612)
-| Signal | Pi Pin | GPIO | 10kΩ pulldown to GND | Motor |
-|--------|--------|------|----------------------|-------|
-| AIN1 | 13 | GPIO 27 | Yes | A (Right) |
-| AIN2 | 11 | GPIO 17 | Yes | A (Right) |
-| PWMA | 33 | GPIO 13 | Yes | A (Right) |
-| BIN1 | 37 | GPIO 26 | Yes | B (Left) |
-| BIN2 | 35 | GPIO 19 | Yes | B (Left) |
-| PWMB | 32 | GPIO 12 | Yes | B (Left) |
+| Signal | Pi Pin | GPIO |  Motor |
+|--------|--------|------|-------|
+| AIN1 | 13 | GPIO 27 | A (Right) |
+| AIN2 | 11 | GPIO 17 | A (Right) |
+| PWMA | 33 | GPIO 13 | A (Right) |
+| BIN1 | 37 | GPIO 26 | B (Left) |
+| BIN2 | 35 | GPIO 19 | B (Left) |
+| PWMB | 32 | GPIO 12 | B (Left) |
 
 ### Encoders (Pi ← Encoders)
 | Signal | Pi Pin | GPIO | Motor |

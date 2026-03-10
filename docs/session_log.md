@@ -225,8 +225,7 @@ Fixed by rewriting the encoder section to use the gpiod v1 C API:
 ### Next session
 Implement `computePID()` in C++. The function signature, struct, and comments are already in place — only the three PID terms need to be written. Set gains to the known-working Python values (KP=0.01, KI=0.005, KD=0) once implemented and verify closed-loop behaviour matches the Python node.
 
-## 2026-03-10-20-20 - Alex
-## 2026-03-10 — VSCode Debugger Setup for C++ ROS 2 Node
+## 2026-03-10-15-20 - Alex - VSCode Debugger Setup for C++ ROS 2 Node
 
 ### Directory changes
 - created new file structure containing project_management directory for all arcitecture and dicision based documents
@@ -382,3 +381,26 @@ Red underlines on `#include <rclcpp/rclcpp.hpp>` in VSCode are IntelliSense fail
 }
 ```
 This does not affect building or running — purely cosmetic fix for IDE experience.
+
+## 2026-03-10-18-45 - Alex - moved logic analyzer x4 traces data to python enviroment on thinkpad
+
+
+### Creating Python analzer Pipeline data transfer system
+- use 4 channels to record enocoder signal at 100kHz
+- removed row 1 from data
+- added time stamp 1/100000 seconds per pulseview reading
+- added gitignore:
+analysis/data/
+*.csv
+*.bag
+
+### How to use
+- record data using logic analzer file on parent server (ThinkPad) 
+- sync Pi and ThinkPad using: rsync -av babyrover@10.0.0.76:~/baby-rover/ ~/01_projects/baby-rover/
+- analyis data on ThinkPad 
+- commit or sync back to Pi any changes use: rsync -av --exclude='analysis/data/' ~/01_projects/baby-rover/ babyrover@10.0.0.76:~/baby-rover/
+- Note make sure not to send large data files to Pi refer above 
+
+### Dependencies:
+- pip3 install pandas --break-system-packages
+- sudo apt install python3-pip

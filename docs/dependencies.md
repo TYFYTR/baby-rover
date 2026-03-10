@@ -154,25 +154,104 @@ ros2 topic echo /odom
 ros2 topic hz /odom        # should be ~50 Hz
 ros2 topic echo /cmd_vel
 ```
+## 12. VSCode C++ Debugger Setup (Pi 5 via Remote-SSH)
 
----
+### Dependencies
+```bash
+sudo apt install gdb
+sudo apt install ninja-build
+```
 
-## Hardware pin mapping
+### CMakeLists.txt
+Add this line after `project(rover_control)` in `rover_control/CMakeLists.txt`:
+```cmake
+set(CMAKE_BUILD_TYPE Debug)
+```
 
-| Signal | BCM GPIO |
-|--------|----------|
-| Motor A IN1 | 27 |
-| Motor A IN2 | 17 |
-| Motor A PWM | 13 |
-| Motor B IN1 | 26 |
-| Motor B IN2 | 19 |
-| Motor B PWM | 12 |
-| Encoder A | 21 |
-| Encoder B | 24 |
-| GPIO chip | /dev/gpiochip4 |
+### VSCode configuration files
+Three files required, all inside `~/baby-rover/.vscode/`:
 
-PWM frequency: 1000 Hz  
-Control loop: 50 Hz  
-Wheel base: 0.34 m  
-Wheel circumference: 0.1382 m  
-Pulses per revolution: 1050
+**c_cpp_properties.json** — fixes IntelliSense header resolution (cosmetic):
+```json
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/opt/ros/jazzy/include/**"
+            ],
+            "compilerPath": "/usr/bin/g++",
+            "cppStandard": "c++17"
+        }
+    ],
+    "version": 4
+}
+```
+
+**tasks.json** — colcon build task:
+```json
+{
+    "tasks": [
+        {
+            "label": "colcon build rover_control",
+            "type": "shell",
+            "command": "cd ~/baby-rover && colcon build --packages-select rover_control",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        }
+    ],
+    "version": "2.0.0"
+}
+```
+
+**launch.json** — debugger configuration:
+```json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug motor_controller",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/home/babyrover/baby-rover/build/motor_controller",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "/home/babyrover/baby-rover",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty printing",
+                    "text": "-enable-pretty-printing"
+                }
+            ]
+        }
+    ]
+}
+```
+
+### CMake kit selection (once per machine)
+`Ctrl+Shift+P` → `CMake: Select a Kit` → select `GCC aarch64-linux-gnu`
+
+### To build and debug
+1. `Ctrl+Shift+P` → `CMake: Build`
+2. Open Run and Debug panel (left sidebar)
+3. Select "Debug motor_controller"
+4. Click green play button
+
+### Important
+Two separate build outputs exist:
+- `~/baby-rover/build/motor_controller` — CMake build, used for debugging
+- `~/baby-rover/install/rover_control/lib/rover_control/motor_controller` — colcon build, used for `ros2 run`
+
+Always use CMake build for debugging. Always use colcon build for deployment.
+
+## 13. Python packages for running analyzer 
+
+- pip3 install pandas --break-system-packages
+- sudo apt install python3-pip
