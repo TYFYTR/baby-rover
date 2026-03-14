@@ -124,12 +124,7 @@ private:
         lgGpioWrite(chip_, AIN1, speed > 0 ? 1 : 0);
         lgGpioWrite(chip_, AIN2, speed > 0 ? 0 : 1);
         if (speed == 0.0) { lgGpioWrite(chip_, AIN1, 0); lgGpioWrite(chip_, AIN2, 0); }
-        lgTxPwm(chip_, PWMA, 1000, duty, 0, 0);
-        
-        if (++debug_counter_ % 25 == 0)
-            RCLCPP_INFO(get_logger(), "AIN1=%d AIN2=%d duty=%.1f", 
-                lgGpioRead(chip_, AIN1), lgGpioRead(chip_, AIN2), duty);
-        
+        lgTxPwm(chip_, PWMA, 1000, duty, 0, 0);       
     }
 
     void driveMotorB(double speed)
@@ -182,6 +177,8 @@ private:
             if (ret == 1) {
                 gpiod_line_event_read(line, &event);
                 count++;
+                
+
             }
         }
     }
@@ -264,6 +261,11 @@ private:
         odom.twist.twist.linear.x  = dist   / DT;
         odom.twist.twist.angular.z = dtheta / DT;
         odom_pub_->publish(odom);
+
+        if (++debug_counter_ % 500 == 0)
+            RCLCPP_INFO(get_logger(), "enc_a=%d enc_b=%d", enc_a_count_.load(), enc_b_count_.load());
+
+        
     }
 };
 

@@ -1,12 +1,3 @@
-# Encoder Hardware/Software Interface
-
-## Description
-Mapping the encoder signal chain from physical pulse to software variable using 
-three validation layers: PulseView (hardware ground truth), VSCode debugger 
-(software state inspection), and printf (live runtime behaviour).
-Goal: establish ground truth of what the software sees at each layer before 
-writing any control logic on top of it.
-
 ## Standard Test Conditions
 - Rover elevated off ground, wheels free-spinning, no load
 - cmd_vel: linear=0.3, angular=0.0, continuous publish
@@ -15,9 +6,18 @@ writing any control logic on top of it.
 - All tests use single-channel rising edge only (1x resolution baseline)
 - Validation layers used noted per test
 
+## Encoder Hardware/Software Interface Tests
+
+### Description
+Mapping the encoder signal chain from physical pulse to software variable using 
+three validation layers: PulseView (hardware ground truth), VSCode debugger 
+(software state inspection), and printf (live runtime behaviour).
+Goal: establish ground truth of what the software sees at each layer before 
+writing any control logic on top of it.
+
 ---
 
-## Test 1: watchEncoder — Thread Independence
+### Test 1: watchEncoder — Thread Independence
 **Goal:** Confirm each encoder runs on an independent kernel thread and cannot
 be triggered by the other motor.
 
@@ -36,7 +36,7 @@ Each thread blocks on its own file descriptor and only wakes on its own GPIO eve
 
 ---
 
-## Test 2: Cumulative Count — Both Motors, Velocity Estimation
+### Test 2: Cumulative Count — Both Motors, Velocity Estimation
 **Goal:** Confirm both enc_a and enc_b accumulate correctly and extract 
 first real velocity data for each motor independently.
 
@@ -91,7 +91,7 @@ compared. Do not treat velocity numbers as ground truth until validated.
 
 ---
 
-## Test 3: Delta Per Tick — Control Loop Resolution
+### Test 3: Delta Per Tick — Control Loop Resolution
 **Goal:** See exactly what the PID receives every 20ms — pulses per tick
 for each motor independently at constant speed.
 
@@ -158,7 +158,7 @@ confirmed by timestamp spacing (~20ms between lines).
 - Validate against PulseView
 - Compare to Test 2 cumulative numbers for consistency
 
-## Test 4: PWM Duty Cycle
+### Test 4: PWM Duty Cycle
 **Goal:** Confirm the duty cycle value sent to hardware matches the 
 expected scaling from cmd_vel.
 
@@ -181,7 +181,7 @@ exact duty cycle calculated from cmd_vel.
 
 ---
 
-## Test 5: Direction Pins — TB6612 Truth Table
+### Test 5: Direction Pins — TB6612 Truth Table
 **Goal:** Confirm AIN1/AIN2 logic matches TB6612 forward/backward truth table.
 
 **Validation layers:** printf
@@ -203,8 +203,9 @@ RCLCPP_INFO(get_logger(), "AIN1=%d AIN2=%d duty=%.1f",
 truth table exactly. AIN1/AIN2 set direction, PWM pin sets speed — 
 fully independent as designed.
 
+### Understanding 
 
-## Encoder Software — Hardware Interface
+#### Encoder Software — Hardware Interface
 - Each encoder runs on independent kernel thread blocking on its own GPIO file descriptor
 - Thread wakes only when kernel delivers interrupt on its specific pin — zero CPU when idle
 - `enc_a_count_` is atomic — CPU-level instruction guarantees no corrupt reads between threads
@@ -212,10 +213,189 @@ fully independent as designed.
 - At linear=0.3: delta_a=13-14 per tick → ~0.088 m/s per motor
 - Motor B runs 2.9% faster than motor A open loop — confirmed systematic bias, not noise
 
-## PWM and Direction — Hardware Interface  
+#### PWM and Direction — Hardware Interface  
 - PWM frequency fixed at 1000Hz. Duty cycle = % of time signal is ON
 - linear=0.3 → duty=30% → motor feels 30% of supply voltage
 - Formula: duty = speed × MAX_SPEED (100)
 - lgTxPwm() programs Pi hardware PWM peripheral — runs in silicon independently of code
 - AIN1=1, AIN2=0 → forward. AIN1=0, AIN2=1 → backward — confirmed against TB6612 truth table
 - Direction and speed are independent: AIN pins set direction, PWM pin sets magnitude
+
+## PulseView Validation Tests — Pending
+
+### PV Test 1: Software count vs hardware pulse count
+- Run motor at linear=0.3 for exactly 10 seconds
+- Record enc_a cumulative count from printf at end of run
+- Simultaneously capture encoder A trace in PulseView at 100kHz
+- Count rising edges in PulseView CSV using Python
+- Compare: software count vs PulseView count
+- Pass: counts match within 1-2 pulses
+- Fail: counts diverge → noise or missed interrupts in software
+
+### PV Test 2: Delta per tick vs hardware pulse spacing
+- Run motor at linear=0.3
+- Capture encoder A in PulseView at 100kHz for 5 seconds
+- In Python: count pulses in each 20ms window across the capture
+- Compare: PulseView pulses per 20ms vs delta_a from printf
+- Pass: both show 13-14 per window consistently
+- Fail: PulseView shows more → software missing pulses
+
+### PV Test 3: Motor A vs Motor B pulse count comparison
+- Run both motors simultaneously at linear=0.3
+- Capture all 4 traces in PulseView at 100kHz for 10 seconds
+- Count total rising edges per channel in Python
+- Compare: enA_trA vs enB_trA total counts
+- Expected: enc_b ~2.9% higher than enc_a (matches printf finding)
+- Pass: PulseView ratio matches software ratio
+- Fail: ratios disagree → one encoder has noise or miscounting
+
+### PV Test 4: Direction validation
+- Run motor forward then reverse
+- Capture both traces of encoder A in PulseView
+- Verify: enA_trA leads enA_trB on forward, enA_trB leads enA_trA on reverse
+- Pass: direction consistently detectable from phase relationship
+- Fail: phase relationship inconsistent → quadrature unreliable
+
+## Single Motor PID — Implementation Steps
+
+### Step 1: Write computePID()
+- Open rover_control/src/motor_controller.cpp
+- Find computePID() stub
+- Implement three terms by hand:
+  - P: double p = PID_KP * error
+  - I: state.integral += PID_KI * error * DT
+  - I: clamp state.integral to ±WINDUP_LIMIT
+  - D: double d = PID_KD * (error - state.prev_error) / DT
+  - Update: state.prev_error = error
+  - Return: p + state.integral + d
+- Gains start at 0.0 — do not set gains yet
+
+### Step 2: Restructure timerCallback() for per-motor PID
+- Calculate target velocity per wheel from cmd_vel:
+  - target_a = linear_ - (angular_ * WHEEL_BASE / 2.0)
+  - target_b = linear_ + (angular_ * WHEEL_BASE / 2.0)
+- Calculate actual velocity per wheel from delta:
+  - vel_a = (delta_a / PULSES_PER_REV) * WHEEL_CIRCUMFERENCE / DT
+  - vel_b = (delta_b / PULSES_PER_REV) * WHEEL_CIRCUMFERENCE / DT
+- Calculate error per wheel:
+  - error_a = target_a - vel_a
+  - error_b = target_b - vel_b
+- Add second PidState instance for motor B:
+  - PidState pid_state_a_
+  - PidState pid_state_b_
+- Call computePID() independently for each motor:
+  - pwm_a = computePID(error_a, pid_state_a_)
+  - pwm_b = computePID(error_b, pid_state_b_)
+- Drive motors with PID output:
+  - driveMotorA(pwm_a)
+  - driveMotorB(pwm_b)
+
+### Step 3: Open loop test — confirm structure works
+- Keep all gains at 0.0
+- Run at linear=0.3
+- Confirm motors still spin — structure is correct
+- Confirm printf shows error_a and error_b printing nonzero values
+
+### Step 4: Set P gain only
+- Set PID_KP = 0.01, Ki = 0.0, Kd = 0.0
+- Run at linear=0.3
+- Record delta_a, delta_b, error_a, error_b, pwm_a, pwm_b with printf
+- Observe: does correction respond to error?
+- Capture PulseView trace simultaneously
+
+### Step 5: Add I gain
+- Set PID_KI = 0.005
+- Run at linear=0.3
+- Watch integral accumulate in printf output
+- Confirm motors converge to matched speed
+- Record settling time — how many seconds to stable ratio
+
+### Step 6: Validate against Simulink
+- Record step response data via ROS bag:
+  - ros2 bag record /odom /cmd_vel
+- Load bag in Python analysis script
+- Plot velocity_a and velocity_b over time
+- Overlay on Simulink step response
+- Measure: rise time, overshoot, settling time, steady state error
+- Tune gains until hardware response matches Simulink target
+
+### Step 7: Repeat for motor B independently
+- Disconnect motor A
+- Run motor B alone with its own PID
+- Tune pid_state_b_ gains independently
+- Confirm motor B matches motor A response profile
+
+## Motor A Plant Identification — Simulink
+
+### Step 1: Capture step response data
+- Disconnect motor B
+- Command step input: linear=0.0 → linear=0.3 at t=0
+- Record with ROS bag:
+  - ros2 bag record /odom /cmd_vel
+- Simultaneously capture encoder A in PulseView at 100kHz
+- Run for 10 seconds minimum
+- Repeat 3 times — average removes noise
+
+### Step 2: Extract velocity over time in Python
+- Load ROS bag
+- Extract delta_a per tick from odom topic
+- Convert to velocity: vel_a = (delta_a / 1050) * 0.1382 / 0.02
+- Plot velocity vs time — this is your step response curve
+
+### Step 3: Identify transfer function
+- Feed velocity curve into MATLAB System Identification Toolbox
+- Fit second order transfer function to data
+- Record: numerator, denominator, time constant, DC gain
+- Compare to Simulink placeholder [1] / [0.01 0.1 1]
+- Replace placeholder with real values
+
+### Step 4: Validate plant model in Simulink
+- Update Transfer Function block with real coefficients
+- Apply same step input as hardware test
+- Overlay Simulink response vs Python extracted response
+- Pass: curves match within acceptable tolerance
+- Fail: re-run system ID with more data
+
+### Step 5: Run pidtune() on real plant
+
+- s = tf('s')
+- plant = real transfer function from Step 3
+- pidtune(plant, 'PID')
+- Record new Kp, Ki, Kd
+- Compare to placeholder gains from earlier simulation
+- These are your target hardware gains
+
+## Python Analysis Tool — PID Final Tune
+
+### Step 1: Load ROS bag data
+- Extract /odom topic — velocity over time
+- Extract /cmd_vel topic — command over time
+- Plot both on same time axis
+
+### Step 2: Load PulseView CSV
+- Import encoder trace
+- Reconstruct velocity from rising edge timestamps
+- Plot on same axis as ROS bag velocity
+
+### Step 3: Validate both sources agree
+- Overlay ROS bag velocity vs PulseView velocity
+- Pass: curves match
+- Fail: investigate missed pulses or timing offset
+
+### Step 4: Extract step response metrics
+- Rise time: time from 10% to 90% of final velocity
+- Overshoot: peak velocity above setpoint
+- Settling time: time to stay within 5% of setpoint
+- Steady state error: final velocity vs commanded velocity
+
+### Step 5: Overlay hardware vs Simulink
+- Load Simulink export CSV
+- Plot on same axis as hardware response
+- Measure delta between curves
+
+### Step 6: Tune gains from data
+- If steady state error exists → increase Ki
+- If overshoot exists → decrease Kp or increase Kd
+- If response too slow → increase Kp
+- Update gains in cpp, rebuild, rerun, replot
+- Repeat until hardware matches Simulink target

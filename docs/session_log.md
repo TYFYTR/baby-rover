@@ -457,6 +457,24 @@ expected scaling from cmd_vel.
 
 2026-03-13- Alex PulesView tests
 
+## 2026-03-14-18-27 Alex (Claude)
+
+### What was done
+- Created `analysis/pulseview_edge_count.py`
+  - Loads a PulseView CSV from a command line argument path
+  - Skips first row (header: "logic, logic, logic, logic")
+  - Names columns: enA_trA, enA_trB, enB_trA, enB_trB
+  - Counts rising edges (0→1 transitions) on enA_trA
+  - Prints total count only — no plotting, no extra output
+
+### Usage
+```
+python3 analysis/pulseview_edge_count.py path/to/export.csv
+```
+
+### What's next
+- Run against PulseView exports to validate encoder pulse counts against hardware ground truth in `docs/hardware_software_interface/encoder.md`
+
 ## 2026-03-14-17-40 Alex (Claude)
 
 ### What was done
