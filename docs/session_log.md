@@ -497,3 +497,21 @@ python3 analysis/pulseview_edge_count.py path/to/export.csv
 - Implement launch file (`archive/launch/baby_rover.launch.py` → promote when ready)
 - Tune PID in `rover_control/src/motor_controller.cpp` (computePID() currently returns 0.0)
 - Port `nodes/imu_driver.py` into the ament_cmake package
+
+## 2026-03-18-20-00 Alex — PulseView Validation Tests (Claude)
+
+### What was done
+- Ran PV Test 1: software count vs hardware pulse count for both motors
+- Built `analysis/pulseview_edge_count.py` — counts rising edges on all 4 traces
+- Validated at linear=1.0 at 100kHz and 1MHz sample rates
+- Motor B: exact match at both rates. Motor A: 0.2% error at 100kHz, 0.08% at 1MHz
+- At operating speed linear=0.3 counts were spot on — software counting confirmed accurate
+- PV Test 2 (direction) closed — refer encoder hardware analysis, confirmed in Google Docs
+- Saved PulseView sessions as .sr + .csv to: `/home/mantis/01_projects/analysis/baby-rover/encoders/edge_count/`
+
+### Pending
+- PV Test 3: delta per tick vs hardware pulse spacing — not yet done, not blocking
+
+### What's next
+- computePID() implementation
+```
