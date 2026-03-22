@@ -527,4 +527,17 @@ python3 analysis/pulseview_edge_count.py path/to/export.csv
 - Refer: docs/hardware_software_interface/pid.md
 
 ### What's next
-- PID tuning
+- Python analysis
+
+## 2026-03-22-11-00 — Alex (Claude)
+
+### What was done
+- Built analysis/plot_pid_response.py — loads ROS bag, plots motor A and B 
+  velocity independently vs cmd_vel, error subplot
+- Fixed unit mismatch: cmd_vel converted from PWM to m/s (× 0.2933)
+- Individual motor velocities extracted from /odom using wheel base geometry
+- Captured step response at KP=0.001, KI=KD=0.0 — closed loop confirmed clean
+- Refer: docs/hardware_software_interface/pid_velocity_response.md
+
+### What's next
+- simulation plant

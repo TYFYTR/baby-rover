@@ -1,3 +1,5 @@
+# Ground Truth Testing
+
 ## Standard Test Conditions
 - Rover elevated off ground, wheels free-spinning, no load
 - cmd_vel: linear=0.3, angular=0.0, continuous publish
@@ -371,6 +373,30 @@ target_b = (linear_ + (angular_ * WHEEL_BASE / 2.0)) * MOTOR_B_TRIM;
 | 20     | 35.864 | 34.563 | 0.3311 | 0.3212 |
 
 **Key finding:** pwm jumped from 0.2952 → 0.330 — P term adding ~0.035 correction. Error not closing — expected, P alone cannot eliminate steady state error. Both motors responding independently. Closed loop confirmed alive.
+
+# PID Velocity Response — Hardware Validation
+
+## Description
+Step response captured via ROS bag, plotted using analysis/plot_pid_response.py.
+Validates closed loop behaviour at each gain setting.
+All runs: floor, linear=0.3, 1 metre+, rover free-running.
+
+---
+
+## Run 2603221030 — KP=0.001, KI=0.0, KD=0.0
+
+**Plot:** `analysis/plots/2603221030.png`
+
+**Observations:**
+- Both motors reach ~0.095 m/s, cmd_vel target 0.088 m/s
+- Motors A and B nearly identical — trim working
+- Steady state error: -0.008 m/s — motors consistently above target
+- Error never crosses zero — expected, P alone cannot eliminate steady state error
+- Clean step response, no noise, rise time ~1 second
+
+**Key finding:** P term confirmed working. Steady state error of -0.008 m/s 
+persists — requires I term to eliminate.
+
 
 ## Motor A Plant Identification — Simulink
 
